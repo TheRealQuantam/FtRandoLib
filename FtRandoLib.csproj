@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <Authors>Justin Olbrantz (Quantam)</Authors>
+    <Company />
+    <Description>A .NET class library of support functions for importing FamiTracker music into NES ROMs and maintaining music libraries, allowing support for FamiTracker conversions to be integrated into randomizers with minimal game-specific code.</Description>
+    <PackageProjectUrl>https://github.com/TheRealQuantam/FtRandoLib</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/TheRealQuantam/FtRandoLib</RepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+
+</Project>
