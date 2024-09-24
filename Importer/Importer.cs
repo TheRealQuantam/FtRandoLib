@@ -231,9 +231,12 @@ public abstract class Importer
         {
             Debug.Assert(modInfo.Size <= BankSize, $"FTM {modInfo.Title} is larger than a bank"); ////
 
+            string title = modInfo.Title;
+            if (grpInfo is not null)
+                title = $"{grpInfo.Title} - " + title;
             Module mod = new(
                 "ft",
-                modInfo.Title,
+                title,
                 modInfo.StartAddr ?? DefaultFtStartAddr,
                 modInfo.UncompressedData);
             for (int i = 0; i < Math.Max(modInfo.Songs.Count, 1); i++)
@@ -253,25 +256,104 @@ public abstract class Importer
         }
     }
 
-    public Dictionary<string, List<ISong>> SplitSongsByUsage(
-        IEnumerable<ISong> songs)
+    public Dictionary<TUsage, List<ISong>> SplitSongsByUsage<TUsage>(
+        IEnumerable<ISong> songs,
+        Func<string, TUsage> CvtUsage,
+        IEqualityComparer<TUsage>? comparer = null)
+        where TUsage : notnull
     {
+        if (comparer is null)
+            comparer = EqualityComparer<TUsage>.Default;
+
         RefSet<ISong> haveSongs = new();
-        IstringDictionary<List<ISong>> usageSongs = new();
+        Dictionary<TUsage, List<ISong>> usageSongs = new(comparer);
         foreach (var usage in Uses)
-            usageSongs[usage] = new();
+            usageSongs[CvtUsage(usage)] = new();
 
         foreach (var song in songs)
         {
             Debug.Assert(!haveSongs.Contains(song));
 
             foreach (var usage in song.Uses)
-                usageSongs[usage].Add(song);
+                usageSongs[CvtUsage(usage)].Add(song);
 
             haveSongs.Add(song);
         }
 
         return usageSongs;
+    }
+
+    public Dictionary<string, List<ISong>> SplitSongsByUsage(
+        IEnumerable<ISong> songs)
+    {
+        return SplitSongsByUsage<string>(
+            songs,
+            x => x,
+            StringComparer.InvariantCultureIgnoreCase);
+    }
+
+    public Dictionary<TUsage, List<ISong>> SplitSongsByUsage<TUsage>(
+        IEnumerable<ISong> songs,
+        IReadOnlyDictionary<string, TUsage>? nameMap = null)
+        where TUsage : struct, Enum
+    {
+        if (nameMap is null)
+            nameMap = Enum.GetValues<TUsage>().ToDictionary(
+                x => x.ToString(),
+                StringComparer.InvariantCultureIgnoreCase);
+
+        return SplitSongsByUsage<TUsage>(songs, x => nameMap[x]);
+    }
+
+    public Dictionary<TUsage, List<ISong>> SelectUsesSongs<TUsage>(
+        IReadOnlyDictionary<TUsage, List<ISong>> usesSongs,
+        IReadOnlyDictionary<TUsage, int> numUsageSongs,
+        IShuffler shuffler,
+        IEqualityComparer<TUsage>? comparer = null)
+        where TUsage : notnull
+    {
+        if (comparer is null)
+            comparer = EqualityComparer<TUsage>.Default;
+
+        Dictionary<TUsage, List<ISong>> selUsesSongs = new(comparer);
+        foreach (var (usage, numNeeded) in numUsageSongs)
+        {
+            List<ISong> selSongs = selUsesSongs[usage] = new();
+            List<ISong>? usageSongs;
+            if (!usesSongs.TryGetValue(usage, out usageSongs)
+                || usageSongs.Count == 0)
+                continue;
+
+            int repsNeeded = numNeeded / usageSongs.Count + 1;
+            var shufSongs = shuffler.Shuffle(Enumerable.Repeat(usageSongs, repsNeeded)
+                .SelectMany(x => x).ToList());
+
+            selSongs.AddRange(shufSongs.Take(numNeeded));
+        }
+
+        return selUsesSongs;
+    }
+
+    public Dictionary<string, List<ISong>> SelectUsesSongs(
+        IReadOnlyDictionary<string, List<ISong>> usesSongs,
+        IReadOnlyDictionary<string, int> numUsageSongs,
+        IShuffler shuffler)
+    {
+        return SelectUsesSongs<string>(
+            usesSongs, 
+            numUsageSongs, 
+            shuffler, 
+            StringComparer.InvariantCultureIgnoreCase);
+    }
+
+    public Dictionary<TUsage, List<ISong>> SelectUsesSongs<TUsage>(
+        IReadOnlyDictionary<TUsage, List<ISong>> usesSongs,
+        IReadOnlyDictionary<TUsage, int> numUsageSongs,
+        IShuffler shuffler)
+        where TUsage : struct, Enum
+    {
+        return SelectUsesSongs<TUsage>(
+            usesSongs, numUsageSongs, shuffler, null);
     }
 
     public void Import(

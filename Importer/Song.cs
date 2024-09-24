@@ -118,6 +118,8 @@ public abstract class SongBase : ISong
             : modInfo.Uses.Count > 0 ? modInfo.Uses
             : defaultUses;
     }
+
+    public override string ToString() => $"[{GetType().Name} : \"{Title}\"]";
 }
 
 /// <summary>

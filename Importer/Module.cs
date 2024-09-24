@@ -35,6 +35,8 @@ public class Module
         Data = data;
     }
 
+    public override string ToString() => $"[{Engine} : \"{Title}\"]";
+
     /// <summary>
     /// Tests whether the module's engine is that specified.
     /// </summary>
