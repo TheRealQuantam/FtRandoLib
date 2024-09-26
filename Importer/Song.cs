@@ -119,7 +119,7 @@ public abstract class SongBase : ISong
             : defaultUses;
     }
 
-    public override string ToString() => $"[{GetType().Name} : \"{Title}\"]";
+    public override string ToString() => $"{GetType().Name} : \"{Title}\"";
 }
 
 /// <summary>

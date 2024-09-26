@@ -78,7 +78,7 @@ public abstract class MusicInfo
     [JsonProperty("uses")]
     public IstringSet Uses = new();
 
-    public override string ToString() => $"[{GetType().Name} : \"{Title}\"]";
+    public override string ToString() => $"{GetType().Name} : \"{Title}\"";
 }
 
 /// <summary>
