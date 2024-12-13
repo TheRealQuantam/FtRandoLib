@@ -110,6 +110,23 @@ public class LibraryTests
         new string[] { "Error setting value to 'Data'", "not a valid Base-64 string" },
         "with title 'Title'")]
     [InlineData(
+        "invalid deflate",
+        """
+            {
+                single: [
+                    {
+                        title: "Title",
+                        author: "Author",
+                        primary_square_chan: 0,
+                        uses: ["1", "2"],
+                        "data": "deflate:EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8=",
+                    },
+                ],
+            }
+        """,
+        new string[] { "Error setting value to 'Data'", "unsupported compression method" },
+        "with title 'Title'")]
+    [InlineData(
         "missing field",
         """
             {
