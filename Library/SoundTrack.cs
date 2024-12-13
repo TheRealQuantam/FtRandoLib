@@ -196,6 +196,61 @@ public class LibraryInfo<TItem, TGroup>
 
     [JsonProperty("groups")]
     public List<TGroup> Groups { get; set; } = new();
+
+    /// <summary>
+    /// Parse a JSON file into a LibraryInfo. Should be used when loading libraries to ensure that errors are properly translated into ParsingErrors.
+    /// </summary>
+    /// <param name="jsonData">The JSON data to parse.</param>
+    /// <param name="type">The type to construct. Must be the class through which Parse is called or a subclass of it.</param>
+    /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
+    public static object Parse(
+        string jsonData,
+        Type type,
+        bool ignoreExtraFields = false)
+    {
+        Debug.Assert(type.IsAssignableTo(typeof(LibraryInfo<TItem, TGroup>)));
+
+        ParsingError? parsingError = null;
+        JsonSerializerSettings settings = new() 
+        { 
+            Error = (sender, args) =>
+            {
+                parsingError = new ParsingError(
+                    typeof(TItem), typeof(TGroup), sender, args);
+            }
+        };
+
+        if (!ignoreExtraFields)
+            settings.MissingMemberHandling = MissingMemberHandling.Error;
+
+        try
+        {
+            var libObj = JsonConvert.DeserializeObject(jsonData, type, settings);
+            Debug.Assert(libObj is not null); ////
+
+            return libObj;
+        }
+        catch
+        {
+            if (parsingError is not null)
+                throw parsingError;
+            else
+                throw;
+        }
+    }
+
+    /// <summary>
+    /// Parse a JSON file into a LibraryInfo. Should be used when loading libraries to ensure that errors are properly translated into ParsingErrors.
+    /// </summary>
+    /// <typeparam name="TLibrary">The type to construct. Must be the class through which Parse is called or a subclass of it.</typeparam>
+    /// <param name="jsonData">The JSON data to parse.</param>
+    /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
+    /// <returns></returns>
+    public static TLibrary Parse<TLibrary>(
+        string jsonData,
+        bool ignoreExtraFields = false)
+        where TLibrary : LibraryInfo<TItem, TGroup>
+        => (TLibrary)Parse(jsonData, typeof(TLibrary), ignoreExtraFields);
 }
 
 public sealed class FtModuleGroupInfo : GroupInfo<FtModuleInfo> { }
