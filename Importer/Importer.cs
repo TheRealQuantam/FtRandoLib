@@ -173,18 +173,10 @@ public abstract class Importer
         where TItem : MusicFileInfo
         where TGroup : GroupInfo<TItem>
     {
-        opts = opts ?? DefaultParserOptions;
-        JsonSerializerSettings? settings = null;
-        if (!opts.IgnoreExtraFields)
-        {
-            settings = new();
-            settings.MissingMemberHandling = MissingMemberHandling.Error;
-        }
-
-        var libObj = JsonConvert.DeserializeObject<LibraryInfo<TItem, TGroup>>(jsonData, settings);
-        Debug.Assert(libObj is not null); ////
-
-        return libObj;
+        return (LibraryInfo<TItem, TGroup>)LibraryInfo<TItem, TGroup>.Parse(
+            jsonData, 
+            typeof(LibraryInfo<TItem, TGroup>), 
+            (opts ?? DefaultParserOptions).IgnoreExtraFields);
     }
 
     protected IEnumerable<TSong> LoadJsonLibrarySongs<TSong, TItem, TGroup>(
