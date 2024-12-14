@@ -102,8 +102,8 @@ public abstract class MusicFileInfo : MusicInfo
         get { return data; }
         set
         {
+            UncompressData(value);
             data = value;
-            UncompressData();
         }
     }
 
@@ -121,12 +121,12 @@ public abstract class MusicFileInfo : MusicInfo
     /// <summary>
     /// Decodes and (if necessary) decompresses the data.
     /// </summary>
-    protected void UncompressData()
+    protected void UncompressData(string rawData)
     {
         const string deflateHdr = "deflate:";
-        if (Data.StartsWith(deflateHdr))
+        if (rawData.StartsWith(deflateHdr))
         {
-            var data = Convert.FromBase64String(Data.Substring(deflateHdr.Length));
+            var data = Convert.FromBase64String(rawData.Substring(deflateHdr.Length));
             using (var outStream = new MemoryStream())
             {
                 using (var memStream = new MemoryStream(data))
@@ -139,7 +139,7 @@ public abstract class MusicFileInfo : MusicInfo
             }
         }
         else
-            UncompressedData = Convert.FromBase64String(Data);
+            UncompressedData = Convert.FromBase64String(rawData);
     }
 }
 
