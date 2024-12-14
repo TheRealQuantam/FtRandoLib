@@ -8,8 +8,6 @@ using System.Linq;
 
 namespace FtRandoLib.Importer;
 
-public class RomFullException : Exception { }
-
 public class LibraryParserOptions
 {
     public bool EnabledOnly = true;
@@ -179,6 +177,27 @@ public abstract class Importer
             (opts ?? DefaultParserOptions).IgnoreExtraFields);
     }
 
+    protected IEnumerable<TSong> LoadJsonGroupSongs<TSong, TItem, TGroup>(
+        IEnumerable<TItem> songs,
+        Func<TGroup?, IEnumerable<TItem>, LibraryParserOptions?, IEnumerable<TSong>> LoadSongs,
+        TGroup? group = null,
+        LibraryParserOptions? opts = null)
+        where TSong : ISong
+        where TItem : MusicFileInfo
+        where TGroup : GroupInfo<TItem>
+    {
+        foreach (var song in LoadSongs(group, songs, opts))
+        {
+            foreach (var usage in song.Uses)
+            {
+                if (!Uses.Contains(usage))
+                    throw new InvalidUsage(usage, song, group);
+            }
+
+            yield return song;
+        }
+    }
+
     protected IEnumerable<TSong> LoadJsonLibrarySongs<TSong, TItem, TGroup>(
         LibraryInfo<TItem, TGroup> libObj,
         Func<TGroup?, IEnumerable<TItem>, LibraryParserOptions?, IEnumerable<TSong>> LoadSongs,
@@ -187,9 +206,10 @@ public abstract class Importer
         where TItem : MusicFileInfo
         where TGroup : GroupInfo<TItem>
     {
-        List<TSong> songs = new(LoadSongs(null, libObj.Single, opts));
-        foreach (var grpInfo in libObj.Groups)
-            songs.AddRange(LoadSongs(grpInfo, grpInfo.Items, opts));
+        List<TSong> songs = new();
+        songs.AddRange(LoadJsonGroupSongs<TSong, TItem, TGroup>(libObj.Single, LoadSongs, null, opts));
+        foreach (var grp in libObj.Groups)
+            songs.AddRange(LoadJsonGroupSongs(grp.Items, LoadSongs, grp, opts));
 
         return songs;
     }
