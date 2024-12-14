@@ -191,7 +191,7 @@ public abstract class Importer
             foreach (var usage in song.Uses)
             {
                 if (!Uses.Contains(usage))
-                    throw new InvalidUsage(usage, song, group);
+                    throw new InvalidUsageError(usage, song);
             }
 
             yield return song;
@@ -207,7 +207,7 @@ public abstract class Importer
         where TGroup : GroupInfo<TItem>
     {
         List<TSong> songs = new();
-        songs.AddRange(LoadJsonGroupSongs<TSong, TItem, TGroup>(libObj.Single, LoadSongs, null, opts));
+        songs.AddRange(LoadJsonGroupSongs(libObj.Single, LoadSongs, null, opts));
         foreach (var grp in libObj.Groups)
             songs.AddRange(LoadJsonGroupSongs(grp.Items, LoadSongs, grp, opts));
 
