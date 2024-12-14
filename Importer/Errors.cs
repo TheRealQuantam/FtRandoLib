@@ -5,7 +5,17 @@ using System.Linq;
 
 namespace FtRandoLib.Importer;
 
-public class InvalidUsageError : Exception
+public abstract class ImportError : Exception
+{
+    public ImportError(
+        string? message = null, 
+        Exception? innerException = null) 
+        : base(message, innerException)
+    {
+    }
+}
+
+public class InvalidUsageError : ImportError
 {
     public string Usage { get; }
     public ISong Song { get; }
@@ -18,5 +28,5 @@ public class InvalidUsageError : Exception
     }
 }
 
-public class RomFullException : Exception { }
+public class RomFullException : ImportError { }
 
