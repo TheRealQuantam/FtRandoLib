@@ -420,7 +420,7 @@ public abstract class Importer
                 {
                     Array.Copy(
                         rom,
-                        bankIdx * layout.BankSize + rng.Start + 0x10,
+                        (int)layout.SourceBank * layout.BankSize + rng.Start + 0x10,
                         bankData.Data,
                         rng.Start,
                         rng.End - rng.Start);
