@@ -76,7 +76,7 @@ public abstract class MusicInfo
     /// The uses in the randomizer this song may be selected for.
     /// </summary>
     [JsonProperty("uses")]
-    public IstringSet Uses = new();
+    public IstringSet Uses { get; } = new();
 
     public override string ToString() => $"{GetType().Name} : \"{Title}\"";
 }
