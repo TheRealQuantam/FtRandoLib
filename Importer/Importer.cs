@@ -336,7 +336,7 @@ public abstract class Importer
                 || usageSongs.Count == 0)
                 continue;
 
-            int repsNeeded = numNeeded / usageSongs.Count + 1;
+            int repsNeeded = checked((numNeeded + usageSongs.Count - 1) / usageSongs.Count);
             var shufSongs = shuffler.Shuffle(Enumerable.Repeat(usageSongs, repsNeeded)
                 .SelectMany(x => x).ToList());
 
