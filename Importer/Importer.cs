@@ -685,12 +685,27 @@ public abstract class Importer
         Dictionary<Module, ImportedModuleInfo> modInfos)
     {
         IReadOnlyList<byte>? origMap = null;
+        int[]? origModAddrs = null;
+        int[] modAddrs;
+
         if (Rom is not null)
+        {
             origMap = new ArraySegment<byte>(
                 Rom,
                 SongMapOffs,
                 NumSongs * 2);
-        int[] modAddrs = new int[NumSongs];
+
+            ArraySegment<byte> origAddrsSeg = new(
+                Rom,
+                SongModAddrTblOffs,
+                NumSongs * 2);
+            origModAddrs = (from UInt16 x
+                in new BinaryBuffer(origAddrsSeg).GetUInt16LEEnumerable()
+                select (int)x).ToArray();
+            modAddrs = origModAddrs.ToArray();
+        }
+        else
+            modAddrs = new int[NumSongs];
 
         byte[] buffData = new byte[2];
         foreach (var (songIdx, song) in songs)
@@ -706,10 +721,11 @@ public abstract class Importer
             {
                 // Builtin track
                 Debug.Assert(origMap is not null);
+                Debug.Assert(origModAddrs is not null);
 
-                bankIdx = origMap[songIdx * 2];
-                modSongIdx = origMap[songIdx * 2 + 1];
-                modAddr = EmptyModAddr;
+                bankIdx = origMap[song.Number * 2];
+                modSongIdx = origMap[song.Number * 2 + 1];
+                modAddr = origModAddrs[song.Number];
             }
             else
             {
