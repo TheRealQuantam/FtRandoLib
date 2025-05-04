@@ -123,6 +123,24 @@ public class TextLogger : Logger
 public static class Log
 {
     /// <summary>
+    /// Helper class for implementing Log.Use.
+    /// </summary>
+    public struct LogUsing(Logger logger, bool close = false) : IDisposable
+    {
+        bool _disposed = false;
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            Log.Pop(logger, close);
+
+            _disposed = true;
+        }
+    }
+
+    /// <summary>
     /// The thread-local Logger stacks.
     /// </summary>
     static readonly ThreadLocal<List<Logger>> loggers = new ThreadLocal<List<Logger>>(() => new List<Logger>() { new NullLogger() });
@@ -185,6 +203,26 @@ public static class Log
         Loggers.RemoveAt(i);
 
         return logger;
+    }
+
+    /// <summary>
+    /// Assert that the innermost Logger matches the expected Logger and pop it from the stack.
+    /// </summary>
+    public static void Pop(Logger logger, bool close = false)
+    {
+        Debug.Assert(ReferenceEquals(Loggers[^1], logger));
+
+        Pop(close);
+    }
+
+    /// <summary>
+    /// Safer version of Push/Pop that can be used with the using construct. Pushes the specified Logger to the stack and returns a disposable that pops the logger when disposed.
+    /// </summary>
+    public static LogUsing Use(Logger logger, bool close = false)
+    {
+        Push(logger);
+
+        return new(logger, close);
     }
 
     /// <summary>
