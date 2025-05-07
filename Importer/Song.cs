@@ -1,6 +1,8 @@
 ﻿using FtRandoLib.Library;
 using FtRandoLib.Utility;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace FtRandoLib.Importer;
 
@@ -19,6 +21,11 @@ public interface ISong
 
     string Title { get; }
     string? Author { get; }
+
+    /// <summary>
+    /// The final set of tags for the song after all processing of inheritance, additions, and subtractions is performed.
+    /// </summary>
+    IstringSet Tags { get; }
 
     bool Enabled { get; }
     IstringSet Uses { get; }
@@ -41,6 +48,8 @@ public abstract class SongBase : ISong
     public string Title { get; protected set; }
     public string? Author { get; protected set; }
 
+    public IstringSet Tags { get; protected set; }
+
     public bool Enabled { get; protected set; }
     public IstringSet Uses { get; protected set; }
 
@@ -61,12 +70,14 @@ public abstract class SongBase : ISong
         IstringSet? Uses = null,
         int PrimarySquareChan = 0,
         bool StreamingSafe = false,
-        Module? Module = null)
+        Module? Module = null,
+        IstringSet? Tags = null)
     {
         this.Engine = Engine;
         this.Number = Number;
         this.Title = Title;
         this.Author = Author;
+        this.Tags = Tags ?? new();
         this.Enabled = Enabled;
         this.Uses = Uses ?? new();
         this.PrimarySquareChan = PrimarySquareChan;
@@ -100,6 +111,8 @@ public abstract class SongBase : ISong
         Title = Title + modInfo.Title;
         Author = songFac.Author ?? modInfo.Author ?? grpFac.Author;
 
+        Tags = MergeTags(grpInfo, modInfo, songInfo);
+
         Enabled = songFac.Enabled
             ?? modInfo.Enabled
             ?? grpFac.Enabled
@@ -120,6 +133,43 @@ public abstract class SongBase : ISong
     }
 
     public override string ToString() => $"{GetType().Name} : \"{Title}\"";
+
+    static IstringSet MergeTags(MusicInfo? grpInfo,
+        MusicFileInfo modInfo,
+        MusicInfo? songInfo)
+    {
+        IstringSet tags = new();
+        if (grpInfo is not null)
+            MergeTags(ref tags, grpInfo.Tags);
+
+        MergeTags(ref tags, modInfo.Tags);
+
+        if (songInfo is not null)
+            MergeTags(ref tags, songInfo.Tags);
+
+        return tags;
+    }
+
+    static void MergeTags(ref IstringSet curTags, IEnumerable<string> newTags)
+    {
+        foreach (string tag in newTags)
+        {
+            string tagToAdd = tag;
+            if (tag.Length != 0)
+            {
+                if (tag[0] == '-')
+                {
+                    curTags.Remove(tag.Substring(1));
+                    continue;
+                }
+
+                if (tag[0] == '+')
+                    tagToAdd = tag.Substring(1);
+            }
+
+            curTags.Add(tagToAdd);
+        }
+    }
 }
 
 /// <summary>

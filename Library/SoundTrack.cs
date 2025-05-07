@@ -61,6 +61,12 @@ public abstract class MusicInfo
     public string? Author { get; set; } = null;
 
     /// <summary>
+    /// Miscellaneous string tags of mostly application-specific uses. Tags with no or a '+' prefix are added to the tags of their parents, while tags with a '-' prefix are removed.
+    /// </summary>
+    [JsonProperty("tags")]
+    public IstringSet Tags { get; } = new();
+
+    /// <summary>
     /// Whether or not the item is likely to be caught by stream scanners and have negative implications for the stream.
     /// </summary>
     [JsonProperty("streaming_safe")]

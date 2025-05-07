@@ -163,7 +163,7 @@ public class LibraryTests
         RegexOptions? regexOpts = null,
         RegexOptions? atRegexOpts = null)
     {
-        var ex = Assert.Throws<ParsingError>( () => LoadLibrary(jsonData));
+        var ex = Assert.Throws<ParsingError>(() => LoadLibrary(jsonData));
      
         AssertRegexMatches(
             $"{ex.Message}\n{ex.Submessage ?? string.Empty}", 
@@ -173,6 +173,43 @@ public class LibraryTests
         AssertRegexMatches(ex.AtString, atRegex, atRegexOpts);
     }
 
+    /*[InlineData(
+        "tags work",
+        """
+            {
+                single: [
+                    {
+                        title: "Title",
+                        //author: "Author",
+                        "data": "EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8",
+                    },
+                ],
+            }
+        """,
+        )]
+    [Theory]
+    public void LoadLibraryTagTest(
+        string _, // Test name
+        string jsonData,
+        IstringSet tags)
+    {
+        var ex = LoadLibrary(jsonData);
+
+        if (ex.Single.Count != 0)
+        {
+            Assert.Single(ex.Single);
+            Assert.Empty(ex.Groups);
+            Assert.True(ex.Single[0].Tags.SetEquals(tags));
+        }
+        else
+        {
+            Assert.Empty(ex.Single);
+            Assert.Single(ex.Groups);
+            Assert.Single(ex.Groups[0].Items);
+            Assert.True(ex.Groups[0].Items[0].Tags.SetEquals(tags));
+        }
+    }*/
+    
     /*[Theory]
     public void LoadLibrarySucceeds(
         string path,
