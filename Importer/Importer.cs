@@ -110,10 +110,10 @@ public abstract class Importer
     protected virtual int EmptySongIdx { get; } = 0xff;
     protected virtual int EmptyModAddr { get; } = 0;
 
-    protected abstract int PrimarySquareChan { get; }
+    protected virtual int PrimarySquareChan { get; } = 0;
     protected abstract IstringSet Uses { get; }
     protected abstract IstringSet DefaultUses { get; }
-    protected abstract bool DefaultStreamingSafe { get; }
+    protected virtual bool DefaultStreamingSafe { get; } = true;
 
     /// <summary>
     /// Offset of the song map table in the ROM
@@ -125,14 +125,15 @@ public abstract class Importer
     /// </summary>
     protected abstract int SongModAddrTblOffs { get; }
 
-    protected abstract HashSet<int> BuiltinSongIdcs { get; }
+    protected virtual HashSet<int> BuiltinSongIdcs { get; } = new();
+    protected virtual bool HasInvariantBuiltinSongIdcs { get; } = true;
     protected abstract List<int> FreeSongIdcs { get; }
     protected abstract int NumSongs { get; }
 
-    protected abstract IReadOnlyDictionary<string, SongMapInfo> SongMapInfos { get; }
+    protected virtual IReadOnlyDictionary<string, SongMapInfo> SongMapInfos { get; } = new Dictionary<string, SongMapInfo>();
 
-    protected abstract int NumFtChannels { get; }
-    protected abstract int DefaultFtStartAddr { get; }
+    protected virtual int NumFtChannels { get; } = 5;
+    protected virtual int DefaultFtStartAddr { get; } = 0;
     protected abstract int DefaultFtPrimarySquareChan { get; }
 
     public readonly LibraryParserOptions DefaultParserOptions = new();
@@ -500,7 +501,7 @@ public abstract class Importer
                 {
                     if (song is not null && !songIdcs.ContainsKey(song))
                     {
-                        if (song.Module is not null)
+                        if (song.Module is not null || !HasInvariantBuiltinSongIdcs)
                         {
                             int songIdx = freeIdxQueue.Dequeue();
                             songIdcs[song] = songIdx;
