@@ -8,6 +8,7 @@
     <Description>A .NET class library of support functions for importing FamiTracker music into NES ROMs and maintaining music libraries, allowing support for FamiTracker conversions to be integrated into randomizers with minimal game-specific code.</Description>
     <PackageProjectUrl>https://github.com/TheRealQuantam/FtRandoLib</PackageProjectUrl>
     <RepositoryUrl>https://github.com/TheRealQuantam/FtRandoLib</RepositoryUrl>
+    <IsTrimmable>True</IsTrimmable>
   </PropertyGroup>
 
   <ItemGroup>

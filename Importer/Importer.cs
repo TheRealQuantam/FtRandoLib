@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace FtRandoLib.Importer;
@@ -166,19 +167,18 @@ public abstract class Importer
         //this.Shuffler = Shuffler;
     }
 
-    public LibraryInfo<TItem, TGroup> ParseJsonLibrary<TItem, TGroup>(
+    public LibraryInfo<TItem, TGroup> ParseJsonLibrary<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]  TItem, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]  TGroup>(
         string jsonData,
         LibraryParserOptions? opts = null)
         where TItem : MusicFileInfo
         where TGroup : GroupInfo<TItem>
     {
-        return (LibraryInfo<TItem, TGroup>)LibraryInfo<TItem, TGroup>.Parse(
+        return (LibraryInfo<TItem, TGroup>)LibraryInfo<TItem, TGroup>.Parse<LibraryInfo<TItem, TGroup>>(
             jsonData, 
-            typeof(LibraryInfo<TItem, TGroup>), 
             (opts ?? DefaultParserOptions).IgnoreExtraFields);
     }
 
-    protected IEnumerable<TSong> LoadJsonGroupSongs<TSong, TItem, TGroup>(
+    protected IEnumerable<TSong> LoadJsonGroupSongs<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TSong, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup>(
         IEnumerable<TItem> songs,
         Func<TGroup?, IEnumerable<TItem>, LibraryParserOptions?, IEnumerable<TSong>> LoadSongs,
         TGroup? group = null,
@@ -199,7 +199,7 @@ public abstract class Importer
         }
     }
 
-    protected IEnumerable<TSong> LoadJsonLibrarySongs<TSong, TItem, TGroup>(
+    protected IEnumerable<TSong> LoadJsonLibrarySongs<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TSong, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup>(
         LibraryInfo<TItem, TGroup> libObj,
         Func<TGroup?, IEnumerable<TItem>, LibraryParserOptions?, IEnumerable<TSong>> LoadSongs,
         LibraryParserOptions? opts = null)
@@ -215,7 +215,7 @@ public abstract class Importer
         return songs;
     }
 
-    protected IEnumerable<TSong> LoadJsonLibrarySongs<TSong, TItem, TGroup>(
+    protected IEnumerable<TSong> LoadJsonLibrarySongs<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]  TSong, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]  TItem, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]  TGroup>(
         string jsonData,
         Func<TGroup?, IEnumerable<TItem>, LibraryParserOptions?, IEnumerable<TSong>> LoadSongs,
         LibraryParserOptions? opts = null)

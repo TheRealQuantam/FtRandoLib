@@ -3,9 +3,10 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections;
-using System.Diagnostics;
-using System.IO;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.IO.Compression;
 
 namespace FtRandoLib.Library;
@@ -124,6 +125,10 @@ public abstract class MusicFileInfo : MusicInfo
 
     private string data = "";
 
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(JsonHexStringConverter))]
+    public MusicFileInfo()
+    { }
+
     /// <summary>
     /// Decodes and (if necessary) decompresses the data.
     /// </summary>
@@ -168,6 +173,10 @@ public class FtSongInfo : MusicInfo
 [JsonObject]
 public class FtModuleInfo : MusicFileInfo
 {
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtSongInfo))]
+    public FtModuleInfo()
+    { }
+
     /// <summary>
     /// The list of songs in the module that may be accessed by FtRandoLib. Modules that contain 1 song typically do not have explicit song entries.
     /// </summary>
@@ -180,7 +189,7 @@ public class FtModuleInfo : MusicFileInfo
 /// </summary>
 /// <typeparam name="TItem">The type of object in the group.</typeparam>
 [JsonObject]
-public class GroupInfo<TItem> : MusicInfo 
+public class GroupInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem> : MusicInfo 
     where TItem : MusicFileInfo
 {
     [JsonProperty("items")]
@@ -193,7 +202,8 @@ public class GroupInfo<TItem> : MusicInfo
 /// <typeparam name="TItem">The file type of the library.</typeparam>
 /// <typeparam name="TGroup">The file group type of the library.</typeparam>
 [JsonObject]
-public class LibraryInfo<TItem, TGroup> 
+public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem, 
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup> 
     where TItem : MusicFileInfo 
     where TGroup : GroupInfo<TItem>
 {
@@ -216,9 +226,34 @@ public class LibraryInfo<TItem, TGroup>
     {
         Debug.Assert(type.IsAssignableTo(typeof(LibraryInfo<TItem, TGroup>)));
 
+        return Parse<object>(jsonData,
+            (j, s) => JsonConvert.DeserializeObject(j, type, s),
+            ignoreExtraFields);
+    }
+
+    /// <summary>
+    /// Parse a JSON file into a LibraryInfo. Should be used when loading libraries to ensure that errors are properly translated into ParsingErrors.
+    /// </summary>
+    /// <typeparam name="TLibrary">The type to construct. Must be the class through which Parse is called or a subclass of it.</typeparam>
+    /// <param name="jsonData">The JSON data to parse.</param>
+    /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
+    /// <returns></returns>
+    public static TLibrary Parse<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TLibrary>(
+        string jsonData,
+        bool ignoreExtraFields = false)
+        where TLibrary : LibraryInfo<TItem, TGroup>
+        => Parse<TLibrary>(jsonData, 
+            (j, s) => JsonConvert.DeserializeObject<TLibrary>(j, s), 
+            ignoreExtraFields);
+
+    static TLibrary Parse<TLibrary>(
+        string jsonData,
+        Func<string, JsonSerializerSettings, TLibrary?> ParsePrimitive,
+        bool ignoreExtraFields = false)
+    {
         ParsingError? parsingError = null;
-        JsonSerializerSettings settings = new() 
-        { 
+        JsonSerializerSettings settings = new()
+        {
             Error = (sender, args) =>
             {
                 parsingError = new ParsingError(
@@ -231,7 +266,7 @@ public class LibraryInfo<TItem, TGroup>
 
         try
         {
-            var libObj = JsonConvert.DeserializeObject(jsonData, type, settings);
+            var libObj = ParsePrimitive(jsonData, settings);
             Debug.Assert(libObj is not null); ////
 
             return libObj;
@@ -244,20 +279,18 @@ public class LibraryInfo<TItem, TGroup>
                 throw;
         }
     }
-
-    /// <summary>
-    /// Parse a JSON file into a LibraryInfo. Should be used when loading libraries to ensure that errors are properly translated into ParsingErrors.
-    /// </summary>
-    /// <typeparam name="TLibrary">The type to construct. Must be the class through which Parse is called or a subclass of it.</typeparam>
-    /// <param name="jsonData">The JSON data to parse.</param>
-    /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
-    /// <returns></returns>
-    public static TLibrary Parse<TLibrary>(
-        string jsonData,
-        bool ignoreExtraFields = false)
-        where TLibrary : LibraryInfo<TItem, TGroup>
-        => (TLibrary)Parse(jsonData, typeof(TLibrary), ignoreExtraFields);
 }
 
-public sealed class FtModuleGroupInfo : GroupInfo<FtModuleInfo> { }
-public sealed class FtLibraryInfo : LibraryInfo<FtModuleInfo, FtModuleGroupInfo> { }
+public sealed class FtModuleGroupInfo : GroupInfo<FtModuleInfo> 
+{
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtModuleInfo))]
+    public FtModuleGroupInfo()
+    { }
+}
+
+public sealed class FtLibraryInfo : LibraryInfo<FtModuleInfo, FtModuleGroupInfo> 
+{
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtModuleGroupInfo))]
+    public FtLibraryInfo()
+    { }
+}
