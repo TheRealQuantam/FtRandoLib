@@ -4,10 +4,16 @@ using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
+using YamlDotNet.Core;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
+using YamlDotNet.Serialization.NodeDeserializers;
 
 namespace FtRandoLib.Library;
 
@@ -16,12 +22,10 @@ namespace FtRandoLib.Library;
 /// </summary>
 public class JsonHexStringConverter : JsonConverter
 {
-    public override bool CanWrite { get { return false; } }
+    public override bool CanWrite => false;
 
     public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
-    {
-        throw new NotImplementedException();
-    }
+        => throw new NotImplementedException();
 
     public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
     {
@@ -37,9 +41,7 @@ public class JsonHexStringConverter : JsonConverter
     }
 
     public override bool CanConvert(Type objectType)
-    {
-        throw new NotImplementedException();
-    }
+        => throw new NotImplementedException();
 }
 
 /// <summary>
@@ -47,15 +49,11 @@ public class JsonHexStringConverter : JsonConverter
 /// </summary>
 public abstract class MusicInfo
 {
-    /*[JsonIgnore]
-    public const bool EnabledDefault = true;
-    [JsonIgnore]
-    public const bool StreamingSafeDefault = true;*/
-
     [JsonProperty("enabled")]
     public bool? Enabled { get; set; } = null;
 
     [JsonProperty("title", Required = Required.Always)]
+    [Required]
     public string Title { get; set; } = "";
 
     [JsonProperty("author")]
@@ -65,7 +63,7 @@ public abstract class MusicInfo
     /// Miscellaneous string tags of mostly application-specific uses. Tags with no or a '+' prefix are added to the tags of their parents, while tags with a '-' prefix are removed.
     /// </summary>
     [JsonProperty("tags")]
-    public IstringSet Tags { get; } = new();
+    public IstringSet Tags { get; set; } = new();
 
     /// <summary>
     /// Whether or not the item is likely to be caught by stream scanners and have negative implications for the stream.
@@ -83,7 +81,7 @@ public abstract class MusicInfo
     /// The uses in the randomizer this song may be selected for.
     /// </summary>
     [JsonProperty("uses")]
-    public IstringSet Uses { get; } = new();
+    public IstringSet Uses { get; set; } = new();
 
     public override string ToString() => $"{GetType().Name} : \"{Title}\"";
 }
@@ -98,12 +96,14 @@ public abstract class MusicFileInfo : MusicInfo
     /// </summary>
     [JsonProperty("start_addr")]
     [JsonConverter(typeof(JsonHexStringConverter))]
+    [YamlConverter(typeof(YamlHexStringConverter))]
     public int? StartAddr { get; set; } = null;
 
     /// <summary>
     /// The data in the form provided by the library file. The base implementation encodes this data in base64 (.NET dialect), optionally compressed via deflate (.NET dialect) if the data begins with "deflate:".
     /// </summary>
     [JsonProperty("data", Required = Required.Always)]
+    [Required]
     public string Data
     {
         get { return data; }
@@ -118,9 +118,12 @@ public abstract class MusicFileInfo : MusicInfo
     /// The decoded and decompressed data.
     /// </summary>
     [JsonIgnore]
-    public byte[] UncompressedData { get; private set; } = new byte[0];
+    [YamlIgnore]
+    [MinLength(1, ErrorMessage = "The Data field is required")]
+    public byte[] UncompressedData { get; private set; } = Array.Empty<byte>();
 
     [JsonIgnore]
+    [YamlIgnore]
     public int Size { get { return UncompressedData.Length; } }
 
     private string data = "";
@@ -158,19 +161,22 @@ public abstract class MusicFileInfo : MusicInfo
 /// A FamiTracker song in the library.
 /// </summary>
 [JsonObject]
+[YamlSerializable]
 public class FtSongInfo : MusicInfo
 {
     /// <summary>
     /// The 0-based index of the song in the containing module.
     /// </summary>
     [JsonProperty("number", Required = Required.Always)]
-    public int Number { get; set; } = 0;
+    [Range(0, int.MaxValue, ErrorMessage = "The " + nameof(Number) + " field is required")]
+    public int Number { get; set; } = -1;
 }
 
 /// <summary>
 /// A FamiTracker module in the library.
 /// </summary>
 [JsonObject]
+[YamlSerializable]
 public class FtModuleInfo : MusicFileInfo
 {
     [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtSongInfo))]
@@ -189,6 +195,7 @@ public class FtModuleInfo : MusicFileInfo
 /// </summary>
 /// <typeparam name="TItem">The type of object in the group.</typeparam>
 [JsonObject]
+[YamlSerializable]
 public class GroupInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem> : MusicInfo 
     where TItem : MusicFileInfo
 {
@@ -202,6 +209,7 @@ public class GroupInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberType
 /// <typeparam name="TItem">The file type of the library.</typeparam>
 /// <typeparam name="TGroup">The file group type of the library.</typeparam>
 [JsonObject]
+[YamlSerializable]
 public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem, 
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup> 
     where TItem : MusicFileInfo 
@@ -214,19 +222,56 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     public List<TGroup> Groups { get; set; } = new();
 
     /// <summary>
+    /// Parse a JSON or YAML file into a LibraryInfo. It is preferable to use ParseJson or ParseYaml as Parse is not 100% guaranteed to correctly detect the file format.
+    /// </summary>
+    /// <param name="data">The JSON or YAML data to parse.</param>
+    /// <param name="type">The type to construct. Must be the class through which Parse is called or a subclass of it.</param>
+    /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
+    public static object Parse(
+        string data,
+        Type type,
+        bool ignoreExtraFields = false)
+    {
+        Debug.Assert(type.IsAssignableTo(typeof(LibraryInfo<TItem, TGroup>)));
+
+        if (IsFirstCharJson(data.First(ch => char.IsWhiteSpace(ch))))
+            return ParseJson(data, type, ignoreExtraFields);
+        else
+            return ParseYaml(data, type, ignoreExtraFields);
+    }
+
+    /// <summary>
+    /// Parse a JSON or YAML file into a LibraryInfo. It is preferable to use ParseJson or ParseYaml as Parse is not 100% guaranteed to correctly detect the file format.
+    /// </summary>
+    /// <typeparam name="TLibrary">The type to construct. Must be the class through which Parse is called or a subclass of it.</typeparam>
+    /// <param name="data">The JSON or YAML data to parse.</param>
+    /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
+    /// <returns></returns>
+    public static TLibrary Parse<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TLibrary>(
+        string data,
+        bool ignoreExtraFields = false)
+        where TLibrary : LibraryInfo<TItem, TGroup>
+    {
+        if (IsFirstCharJson(data.First(ch => char.IsWhiteSpace(ch))))
+            return ParseJson<TLibrary>(data, ignoreExtraFields);
+        else
+            return ParseYaml<TLibrary>(data, ignoreExtraFields);
+    }
+
+    /// <summary>
     /// Parse a JSON file into a LibraryInfo. Should be used when loading libraries to ensure that errors are properly translated into ParsingErrors.
     /// </summary>
     /// <param name="jsonData">The JSON data to parse.</param>
     /// <param name="type">The type to construct. Must be the class through which Parse is called or a subclass of it.</param>
     /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
-    public static object Parse(
+    public static object ParseJson(
         string jsonData,
         Type type,
         bool ignoreExtraFields = false)
     {
         Debug.Assert(type.IsAssignableTo(typeof(LibraryInfo<TItem, TGroup>)));
 
-        return Parse<object>(jsonData,
+        return ParseJson<object>(jsonData,
             (j, s) => JsonConvert.DeserializeObject(j, type, s),
             ignoreExtraFields);
     }
@@ -238,15 +283,88 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <param name="jsonData">The JSON data to parse.</param>
     /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
     /// <returns></returns>
-    public static TLibrary Parse<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TLibrary>(
+    public static TLibrary ParseJson<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TLibrary>(
         string jsonData,
         bool ignoreExtraFields = false)
         where TLibrary : LibraryInfo<TItem, TGroup>
-        => Parse<TLibrary>(jsonData, 
-            (j, s) => JsonConvert.DeserializeObject<TLibrary>(j, s), 
+        => ParseJson<TLibrary>(jsonData,
+            (j, s) => JsonConvert.DeserializeObject<TLibrary>(j, s),
             ignoreExtraFields);
 
-    static TLibrary Parse<TLibrary>(
+    /// <summary>
+    /// Parse a YAML file into a LibraryInfo. Should be used when loading libraries to ensure that errors are properly translated into ParsingErrors.
+    /// </summary>
+    /// <param name="yamlData">The YAML data to parse.</param>
+    /// <param name="type">The type to construct. Must be the class through which Parse is called or a subclass of it.</param>
+    /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
+    public static object ParseYaml(
+        string yamlData,
+        Type type,
+        bool ignoreExtraFields = false)
+    {
+        Debug.Assert(type.IsAssignableTo(typeof(LibraryInfo<TItem, TGroup>)));
+
+        var builder = new DeserializerBuilder()
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .WithTypeConverter(new YamlHexStringConverter())
+            .WithNodeDeserializer(
+                i => new ValidatingYamlNodeDeserializer(i), 
+                s => s.InsteadOf<ObjectNodeDeserializer>());
+
+        if (ignoreExtraFields)
+            builder = builder.IgnoreUnmatchedProperties();
+
+        var deserializer = builder.Build();
+        return DeserializeYaml<object>(yamlData,
+            d => deserializer.Deserialize(d, type));
+    }
+
+    /// <summary>
+    /// Parse a YAML file into a LibraryInfo. Should be used when loading libraries to ensure that errors are properly translated into ParsingErrors. This version of ParseYaml is not trimming safe.
+    /// </summary>
+    /// <typeparam name="TLibrary">The type to construct. Must be the class through which Parse is called or a subclass of it.</typeparam>
+    /// <param name="yamlData">The YAML data to parse.</param>
+    /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
+    /// <returns></returns>
+    public static TLibrary ParseYaml<TLibrary>(
+        string yamlData,
+        bool ignoreExtraFields = false)
+        where TLibrary : LibraryInfo<TItem, TGroup>
+        => (TLibrary)ParseYaml(yamlData, typeof(TLibrary), ignoreExtraFields);
+
+    /// <summary>
+    /// Parse a YAML file into a LibraryInfo. Should be used when loading libraries to ensure that errors are properly translated into ParsingErrors.
+    /// </summary>
+    /// <typeparam name="TLibrary">The type to construct. Must be the class through which Parse is called or a subclass of it.</typeparam>
+    /// <typeparam name="TContext">A YamlDotNet StaticContext capable of parsing a TLibrary.</typeparam>
+    /// <param name="yamlData">The YAML data to parse.</param>
+    /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
+    /// <returns></returns>
+    public static TLibrary ParseYaml<TLibrary, TContext>(
+        string yamlData,
+        bool ignoreExtraFields = false)
+        where TLibrary : LibraryInfo<TItem, TGroup>
+        where TContext : StaticContext, new()
+    {
+        var builder = new StaticDeserializerBuilder(new TContext())
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .WithTypeConverter(new YamlHexStringConverter())
+            .WithNodeDeserializer(
+                i => new ValidatingYamlNodeDeserializer(i),
+                s => s.InsteadOf<ObjectNodeDeserializer>());
+
+        if (ignoreExtraFields)
+            builder = builder.IgnoreUnmatchedProperties();
+
+        var deserializer = builder.Build();
+        return DeserializeYaml<TLibrary>(yamlData,
+            d => deserializer.Deserialize<TLibrary>(d));
+    }
+
+    static bool IsFirstCharJson(char ch)
+        => ch == '[' || ch == '{';
+
+    static TLibrary ParseJson<TLibrary>(
         string jsonData,
         Func<string, JsonSerializerSettings, TLibrary?> ParsePrimitive,
         bool ignoreExtraFields = false)
@@ -279,8 +397,34 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 throw;
         }
     }
+
+    static TLibrary DeserializeYaml<TLibrary>(
+        string yamlData,
+        Func<string, TLibrary?> ParsePrimitive)
+    {
+        try
+        {
+            var value = ParsePrimitive(yamlData);
+            Debug.Assert(value is not null); ////
+
+            return value;
+        }
+        catch (YamlException e)
+        {
+            if (e.InnerException is BaseParsingError parseErr)
+                throw new ParsingError(
+                    parseErr, typeof(TItem), typeof(TGroup));
+            else
+                ParsingError.Throw<TItem, TGroup>(e);
+
+            // Shut up compiler
+            throw new UnreachableException();
+        }
+    }
 }
 
+[JsonObject]
+[YamlSerializable]
 public sealed class FtModuleGroupInfo : GroupInfo<FtModuleInfo> 
 {
     [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtModuleInfo))]
@@ -288,6 +432,8 @@ public sealed class FtModuleGroupInfo : GroupInfo<FtModuleInfo>
     { }
 }
 
+[JsonObject]
+[YamlSerializable]
 public sealed class FtLibraryInfo : LibraryInfo<FtModuleInfo, FtModuleGroupInfo> 
 {
     [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtModuleGroupInfo))]

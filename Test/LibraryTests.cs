@@ -20,6 +20,7 @@ public class LibraryTests
                     author: "Author",
                     primary_square_chan: 0,
                     uses: ["1", "2"],
+                    start_addr: 1000,
                     data: "EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8=",
                 },
             ],
@@ -38,6 +39,7 @@ public class LibraryTests
                             author: "Author1",
                             primary_square_chan: 1,
                             uses: ["1", "2"],
+                            start_addr: "1000",
                             data: "EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8=",
                         },
                         {
@@ -54,13 +56,13 @@ public class LibraryTests
         }
         """, 0, 1)]
     [Theory]
-    public void LoadLibraryImmediateSucceeds(
+    public void LoadJsonLibraryImmediateSucceeds(
         string _, // Test name
         string jsonData,
         int numSingle,
         int numGroups)
     {
-        var lib = LoadLibrary(jsonData);
+        var lib = LoadJsonLibrary(jsonData);
 
         Assert.Equal(lib.Single.Count, numSingle);
         Assert.Equal(lib.Groups.Count, numGroups);
@@ -155,7 +157,7 @@ public class LibraryTests
         "could not find member 'goat'",
         new string[] { "line 9", "position 21", "with title 'Title'" })]
     [Theory]
-    public void LoadLibraryImmediateFails(
+    public void LoadJsonLibraryImmediateFails(
         string _, // Test name
         string jsonData,
         object? errRegex = null,
@@ -163,11 +165,135 @@ public class LibraryTests
         RegexOptions? regexOpts = null,
         RegexOptions? atRegexOpts = null)
     {
-        var ex = Assert.Throws<ParsingError>(() => LoadLibrary(jsonData));
+        var ex = Assert.Throws<ParsingError>(() => LoadJsonLibrary(jsonData));
      
         AssertRegexMatches(
             $"{ex.Message}\n{ex.Submessage ?? string.Empty}", 
             errRegex, 
+            regexOpts);
+
+        AssertRegexMatches(ex.AtString, atRegex, atRegexOpts);
+    }
+
+    [InlineData("single", """
+        single:
+            -   title: Title
+                author: 'Author'
+                primary_square_chan: 0
+                uses: [1, "2"]
+                start_addr: 1000
+                data: EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8=
+        """, 1, 0)]
+    [InlineData("groups", """
+        groups:
+            -   title: "Group"
+                author: "Author"
+                primary_square_chan: "0"
+                items:
+                    -   title: "Title1"
+                        author: "Author1"
+                        primary_square_chan: 1
+                        uses: 
+                            - 1
+                            - "2"
+                        start_addr: 0x1000
+                        data: "EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8="
+                    -   title: "Title2"
+                        start_addr: $1000
+                        data: "EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8="
+                    -   title: "Title3"
+                        start_addr: "1000"
+                        start_addr: "0x1000"
+                        start_addr: "$1000"
+                        data: "EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8="
+        """, 0, 1)]
+    [Theory]
+    public void LoadYamlLibraryImmediateSucceeds(
+        string _, // Test name
+        string yamlData,
+        int numSingle,
+        int numGroups)
+    {
+        var lib = LoadYamlLibrary(yamlData);
+
+        Assert.Equal(lib.Single.Count, numSingle);
+        Assert.Equal(lib.Groups.Count, numGroups);
+    }
+
+    [InlineData(
+        "string assigned to int",
+        """
+        single:
+            -   title: "Title"
+                author: "Author"
+                primary_square_chan: goat
+                uses: ["1", "2"]
+                "data": "EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8="
+        """,
+        "not in a correct format",
+        new string[] { "line 4", "position 30", "with title 'Title'" })]
+    [InlineData(
+        "invalid base64",
+        """
+        single:
+            -   title: "Title"
+                author: "Author"
+                primary_square_chan: 0
+                uses: ["1", "2"]
+                "data": "EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8"
+        """,
+        new string[] { /*"Error setting value to 'Data'",*/ "not a valid Base-64 string" },
+        new string[] { "line 6", "position 9", "with title 'Title'" })]
+    [InlineData(
+        "invalid deflate",
+        """
+        single:
+            -   title: "Title"
+                author: "Author"
+                primary_square_chan: 0
+                uses: ["1", "2"]
+                "data": "deflate:EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8="
+        """,
+        new string[] { /*"Error setting value to 'Data'",*/ "unsupported compression method" },
+        new string[] { "line 6", "position 9", "with title 'Title'" })]
+    [InlineData(
+        "missing field",
+        """
+        single:
+            -   title: "Title"
+                author: "Author"
+                primary_square_chan: 0
+                uses: ["1", "2"]
+        """,
+        "The Data field is required.",
+        new string[] { "line 2", "position 9", "with title 'Title'" })]
+    [InlineData(
+        "extra field",
+        """
+        single:
+            -   title: "Title"
+                author: "Author"
+                primary_square_chan: 0
+                uses: ["1", "2"]
+                "data": "EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8="
+                goat: true
+        """,
+        "Property 'goat' not found",
+        new string[] { "line 7", "position 9", "with title 'Title'" })]
+    [Theory]
+    public void LoadYamlLibraryImmediateFails(
+        string _, // Test name
+        string yamlData,
+        object? errRegex = null,
+        object? atRegex = null,
+        RegexOptions? regexOpts = null,
+        RegexOptions? atRegexOpts = null)
+    {
+        var ex = Assert.Throws<ParsingError>(() => LoadYamlLibrary(yamlData));
+
+        AssertRegexMatches(
+            $"{ex.Message}\n{ex.Submessage ?? string.Empty}",
+            errRegex,
             regexOpts);
 
         AssertRegexMatches(ex.AtString, atRegex, atRegexOpts);
@@ -209,7 +335,7 @@ public class LibraryTests
             Assert.True(ex.Groups[0].Items[0].Tags.SetEquals(tags));
         }
     }*/
-    
+
     /*[Theory]
     public void LoadLibrarySucceeds(
         string path,
@@ -251,15 +377,27 @@ public class LibraryTests
     }
 
 
-    private FtLibraryInfo LoadLibrary(string jsonData)
+    private FtLibraryInfo LoadJsonLibrary(string jsonData)
     {
-        return (FtLibraryInfo)FtLibraryInfo.Parse<FtLibraryInfo>(jsonData);
+        return (FtLibraryInfo)FtLibraryInfo.ParseJson<FtLibraryInfo>(jsonData);
     }
 
-    private FtLibraryInfo LoadLibraryFile(string path)
+    private FtLibraryInfo LoadJsonLibraryFile(string path)
     {
         string jsonData = File.ReadAllText(path);
         
-        return LoadLibrary(jsonData);
+        return LoadJsonLibrary(jsonData);
+    }
+
+    private FtLibraryInfo LoadYamlLibrary(string jsonData)
+    {
+        return (FtLibraryInfo)FtLibraryInfo.ParseYaml<FtLibraryInfo>(jsonData);
+    }
+
+    private FtLibraryInfo LoadYamlLibraryFile(string path)
+    {
+        string yamlData = File.ReadAllText(path);
+
+        return LoadYamlLibrary(yamlData);
     }
 }
