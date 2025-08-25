@@ -1,11 +1,11 @@
 using FtRandoLib.Library;
 using FtRandoLib.Utility;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using YamlDotNet.Serialization;
 
 namespace FtRandoLib.Importer;
 
@@ -101,6 +101,11 @@ public record SongMapInfo(string Name, int Offset, int Length, byte EmptyIndex =
 
 public abstract class Importer
 {
+    public static IReadOnlySet<string> JsonExtensions()
+        => MusicFileInfo.JsonExtensions();
+    public static IReadOnlySet<string> YamlExtensions()
+        => MusicFileInfo.YamlExtensions();
+    
     /// <summary>
     /// The size of each ROM bank
     /// </summary>
@@ -173,12 +178,35 @@ public abstract class Importer
         where TItem : MusicFileInfo
         where TGroup : GroupInfo<TItem>
     {
-        return (LibraryInfo<TItem, TGroup>)LibraryInfo<TItem, TGroup>.Parse<LibraryInfo<TItem, TGroup>>(
+        return LibraryInfo<TItem, TGroup>.ParseJson<LibraryInfo<TItem, TGroup>>(
             jsonData, 
             (opts ?? DefaultParserOptions).IgnoreExtraFields);
     }
 
-    protected IEnumerable<TSong> LoadJsonGroupSongs<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TSong, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup>(
+    public LibraryInfo<TItem, TGroup> ParseYamlLibrary<TItem, TGroup>(
+        string yamlData,
+        LibraryParserOptions? opts = null)
+        where TItem : MusicFileInfo
+        where TGroup : GroupInfo<TItem>
+    {
+        return LibraryInfo<TItem, TGroup>.ParseYaml<LibraryInfo<TItem, TGroup>>(
+            yamlData,
+            (opts ?? DefaultParserOptions).IgnoreExtraFields);
+    }
+
+    public LibraryInfo<TItem, TGroup> ParseYamlLibrary<TItem, TGroup, TContext>(
+        string yamlData,
+        LibraryParserOptions? opts = null)
+        where TItem : MusicFileInfo
+        where TGroup : GroupInfo<TItem>
+        where TContext : StaticContext, new()
+    {
+        return LibraryInfo<TItem, TGroup>.ParseYaml<LibraryInfo<TItem, TGroup>, TContext>(
+            yamlData,
+            (opts ?? DefaultParserOptions).IgnoreExtraFields);
+    }
+
+    protected IEnumerable<TSong> LoadGroupSongs<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TSong, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup>(
         IEnumerable<TItem> songs,
         Func<TGroup?, IEnumerable<TItem>, LibraryParserOptions?, IEnumerable<TSong>> LoadSongs,
         TGroup? group = null,
@@ -199,7 +227,7 @@ public abstract class Importer
         }
     }
 
-    protected IEnumerable<TSong> LoadJsonLibrarySongs<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TSong, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup>(
+    protected IEnumerable<TSong> LoadLibrarySongs<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TSong, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup>(
         LibraryInfo<TItem, TGroup> libObj,
         Func<TGroup?, IEnumerable<TItem>, LibraryParserOptions?, IEnumerable<TSong>> LoadSongs,
         LibraryParserOptions? opts = null)
@@ -208,9 +236,9 @@ public abstract class Importer
         where TGroup : GroupInfo<TItem>
     {
         List<TSong> songs = new();
-        songs.AddRange(LoadJsonGroupSongs(libObj.Single, LoadSongs, null, opts));
+        songs.AddRange(LoadGroupSongs(libObj.Single, LoadSongs, null, opts));
         foreach (var grp in libObj.Groups)
-            songs.AddRange(LoadJsonGroupSongs(grp.Items, LoadSongs, grp, opts));
+            songs.AddRange(LoadGroupSongs(grp.Items, LoadSongs, grp, opts));
 
         return songs;
     }
@@ -224,7 +252,7 @@ public abstract class Importer
         where TGroup : GroupInfo<TItem>
     {
         var libObj = ParseJsonLibrary<TItem, TGroup>(jsonData, opts);
-        return LoadJsonLibrarySongs(libObj, LoadSongs, opts);
+        return LoadLibrarySongs(libObj, LoadSongs, opts);
     }
 
     public IEnumerable<FtSong> LoadFtJsonLibrarySongs(
@@ -233,6 +261,47 @@ public abstract class Importer
     {
         return LoadJsonLibrarySongs<FtSong, FtModuleInfo, FtModuleGroupInfo>(jsonData, LoadFtSongs, opts);
     }
+
+    protected IEnumerable<TSong> LoadYamlLibrarySongs<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TSong, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup>(
+        string yamlData,
+        Func<TGroup?, IEnumerable<TItem>, LibraryParserOptions?, IEnumerable<TSong>> LoadSongs,
+        LibraryParserOptions? opts = null)
+        where TSong : ISong
+        where TItem : MusicFileInfo
+        where TGroup : GroupInfo<TItem>
+    {
+        var libObj = ParseYamlLibrary<TItem, TGroup>(
+            yamlData, opts);
+        return LoadLibrarySongs(libObj, LoadSongs, opts);
+    }
+
+    public IEnumerable<FtSong> LoadFtYamlLibrarySongs(
+        string yamlData,
+        LibraryParserOptions? opts = null)
+    {
+        return LoadYamlLibrarySongs<FtSong, FtModuleInfo, FtModuleGroupInfo>(yamlData, LoadFtSongs, opts);
+    }
+
+    protected IEnumerable<TSong> LoadYamlLibrarySongs<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TSong, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup, TContext>(
+        string yamlData,
+        Func<TGroup?, IEnumerable<TItem>, LibraryParserOptions?, IEnumerable<TSong>> LoadSongs,
+        LibraryParserOptions? opts = null)
+        where TSong : ISong
+        where TItem : MusicFileInfo
+        where TGroup : GroupInfo<TItem>
+        where TContext : StaticContext, new()
+    {
+        var libObj = ParseYamlLibrary<TItem, TGroup, TContext>(
+            yamlData, opts);
+        return LoadLibrarySongs(libObj, LoadSongs, opts);
+    }
+
+    /*public IEnumerable<FtSong> LoadFtYamlLibrarySongs(
+        string yamlData,
+        LibraryParserOptions? opts = null)
+    {
+        return LoadYamlLibrarySongs<FtSong, FtModuleInfo, FtModuleGroupInfo>(yamlData, LoadFtSongs, opts);
+    }*/
 
     protected IEnumerable<FtSong> LoadFtSongs(
         FtModuleGroupInfo? grpInfo,

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -8,11 +8,15 @@
     <Description>A .NET class library of support functions for importing FamiTracker music into NES ROMs and maintaining music libraries, allowing support for FamiTracker conversions to be integrated into randomizers with minimal game-specific code.</Description>
     <PackageProjectUrl>https://github.com/TheRealQuantam/FtRandoLib</PackageProjectUrl>
     <RepositoryUrl>https://github.com/TheRealQuantam/FtRandoLib</RepositoryUrl>
-    <IsTrimmable>True</IsTrimmable>
+    <IsTrimmable>False</IsTrimmable>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)\$(Configuration)\$(TargetFramework)</CompilerGeneratedFilesOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!--<PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="16.3.0" />-->
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
 <ItemGroup>
