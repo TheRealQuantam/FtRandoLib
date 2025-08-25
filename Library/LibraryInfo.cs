@@ -1,14 +1,8 @@
-﻿using FtRandoLib.Utility;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+﻿using Newtonsoft.Json;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using YamlDotNet.Core;
 using YamlDotNet.Serialization;
@@ -18,209 +12,15 @@ using YamlDotNet.Serialization.NodeDeserializers;
 namespace FtRandoLib.Library;
 
 /// <summary>
-/// JsonConverter that allows a number to be specified either as a decimal literal or a string containing a hex number.
-/// </summary>
-public class JsonHexStringConverter : JsonConverter
-{
-    public override bool CanWrite => false;
-
-    public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
-        => throw new NotImplementedException();
-
-    public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
-    {
-        Debug.Assert(reader.Value is not null);
-
-        if (reader.TokenType == JsonToken.Integer)
-            // It's actually a boxed long
-            return checked((int)(long)reader.Value);
-        else if (reader.TokenType == JsonToken.String)
-            return Convert.ToInt32((string)reader.Value, 16);
-
-        throw new JsonReaderException("invalid hex value", reader.Path, -1, -1, null);
-    }
-
-    public override bool CanConvert(Type objectType)
-        => throw new NotImplementedException();
-}
-
-/// <summary>
-/// An object in the library hierarchy that contains information that will directly or indirectly be applied to songs. This may be a song, a file (block of data that contains songs), or a group.
-/// </summary>
-public abstract class MusicInfo
-{
-    [JsonProperty("enabled")]
-    public bool? Enabled { get; set; } = null;
-
-    [JsonProperty("title", Required = Required.Always)]
-    [Required]
-    public string Title { get; set; } = "";
-
-    [JsonProperty("author")]
-    public string? Author { get; set; } = null;
-
-    /// <summary>
-    /// Miscellaneous string tags of mostly application-specific uses. Tags with no or a '+' prefix are added to the tags of their parents, while tags with a '-' prefix are removed.
-    /// </summary>
-    [JsonProperty("tags")]
-    public IstringSet Tags { get; set; } = new();
-
-    /// <summary>
-    /// Whether or not the item is likely to be caught by stream scanners and have negative implications for the stream.
-    /// </summary>
-    [JsonProperty("streaming_safe")]
-    public bool? StreamingSafe { get; set; } = null;
-
-    /// <summary>
-    /// The index of the most important square channel that sound effects should least interfere with. E.g. square 0 for Capcom games or square 1 for Nintendo games.
-    /// </summary>
-    [JsonProperty("primary_square_chan")]
-    public int? PrimarySquareChan { get; set; } = null;
-
-    /// <summary>
-    /// The uses in the randomizer this song may be selected for.
-    /// </summary>
-    [JsonProperty("uses")]
-    public IstringSet Uses { get; set; } = new();
-
-    public override string ToString() => $"{GetType().Name} : \"{Title}\"";
-}
-
-/// <summary>
-/// A file object that represents data that contains one or more songs, e.g. a FamiTracker module.
-/// </summary>
-public abstract class MusicFileInfo : MusicInfo
-{
-    public static IReadOnlySet<string> JsonExtensions() 
-        => new IstringSet([".json", ".jsonc", ".cjson", ".json5"]);
-    public static IReadOnlySet<string> YamlExtensions() 
-        => new IstringSet([".yaml", ".yml"]);
-
-    /// <summary>
-    /// The logical address of the start of the file data. This is used in rebasing the data to be placed in a different location in memory.
-    /// </summary>
-    [JsonProperty("start_addr")]
-    [JsonConverter(typeof(JsonHexStringConverter))]
-    [YamlConverter(typeof(YamlHexStringConverter))]
-    public int? StartAddr { get; set; } = null;
-
-    /// <summary>
-    /// The data in the form provided by the library file. The base implementation encodes this data in base64 (.NET dialect), optionally compressed via deflate (.NET dialect) if the data begins with "deflate:".
-    /// </summary>
-    [JsonProperty("data", Required = Required.Always)]
-    [Required]
-    public string Data
-    {
-        get { return data; }
-        set
-        {
-            UncompressData(value);
-            data = value;
-        }
-    }
-
-    /// <summary>
-    /// The decoded and decompressed data.
-    /// </summary>
-    [JsonIgnore]
-    [YamlIgnore]
-    [MinLength(1, ErrorMessage = "The Data field is required")]
-    public byte[] UncompressedData { get; private set; } = Array.Empty<byte>();
-
-    [JsonIgnore]
-    [YamlIgnore]
-    public int Size { get { return UncompressedData.Length; } }
-
-    private string data = "";
-
-    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(JsonHexStringConverter))]
-    public MusicFileInfo()
-    { }
-
-    /// <summary>
-    /// Decodes and (if necessary) decompresses the data.
-    /// </summary>
-    protected void UncompressData(string rawData)
-    {
-        const string deflateHdr = "deflate:",
-            hexHdr = "hex:";
-        if (rawData.StartsWith(deflateHdr))
-        {
-            var data = Convert.FromBase64String(rawData.Substring(deflateHdr.Length));
-            using (var outStream = new MemoryStream())
-            {
-                using (var memStream = new MemoryStream(data))
-                {
-                    using (var cmpStream = new DeflateStream(memStream, CompressionMode.Decompress))
-                        cmpStream.CopyTo(outStream);
-                }
-
-                UncompressedData = outStream.ToArray();
-            }
-        }
-        else if (rawData.StartsWith(hexHdr))
-            UncompressedData = Convert.FromHexString(rawData.Substring(hexHdr.Length));
-        else
-            UncompressedData = Convert.FromBase64String(rawData);
-    }
-}
-
-/// <summary>
-/// A FamiTracker song in the library.
-/// </summary>
-[JsonObject]
-[YamlSerializable]
-public class FtSongInfo : MusicInfo
-{
-    /// <summary>
-    /// The 0-based index of the song in the containing module.
-    /// </summary>
-    [JsonProperty("number", Required = Required.Always)]
-    [Range(0, int.MaxValue, ErrorMessage = "The " + nameof(Number) + " field is required")]
-    public int Number { get; set; } = -1;
-}
-
-/// <summary>
-/// A FamiTracker module in the library.
-/// </summary>
-[JsonObject]
-[YamlSerializable]
-public class FtModuleInfo : MusicFileInfo
-{
-    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtSongInfo))]
-    public FtModuleInfo()
-    { }
-
-    /// <summary>
-    /// The list of songs in the module that may be accessed by FtRandoLib. Modules that contain 1 song typically do not have explicit song entries.
-    /// </summary>
-    [JsonProperty("songs")]
-    public List<FtSongInfo> Songs { get; set; } = new();
-}
-
-/// <summary>
-/// A group of songs/files in the library.
-/// </summary>
-/// <typeparam name="TItem">The type of object in the group.</typeparam>
-[JsonObject]
-[YamlSerializable]
-public class GroupInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem> : MusicInfo 
-    where TItem : MusicFileInfo
-{
-    [JsonProperty("items")]
-    public List<TItem> Items { get; set; } = new();
-}
-
-/// <summary>
 /// An entire music library.
 /// </summary>
 /// <typeparam name="TItem">The file type of the library.</typeparam>
 /// <typeparam name="TGroup">The file group type of the library.</typeparam>
 [JsonObject]
 [YamlSerializable]
-public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem, 
-    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup> 
-    where TItem : MusicFileInfo 
+public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem,
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup>
+    where TItem : MusicFileInfo
     where TGroup : GroupInfo<TItem>
 {
     [JsonProperty("single")]
@@ -316,7 +116,7 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             .WithNamingConvention(UnderscoredNamingConvention.Instance)
             .WithTypeConverter(new YamlHexStringConverter())
             .WithNodeDeserializer(
-                i => new ValidatingYamlNodeDeserializer(i), 
+                i => new ValidatingYamlNodeDeserializer(i),
                 s => s.InsteadOf<ObjectNodeDeserializer>());
 
         if (ignoreExtraFields)
@@ -431,20 +231,4 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     }
 }
 
-[JsonObject]
-[YamlSerializable]
-public sealed class FtModuleGroupInfo : GroupInfo<FtModuleInfo> 
-{
-    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtModuleInfo))]
-    public FtModuleGroupInfo()
-    { }
-}
 
-[JsonObject]
-[YamlSerializable]
-public sealed class FtLibraryInfo : LibraryInfo<FtModuleInfo, FtModuleGroupInfo> 
-{
-    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtModuleGroupInfo))]
-    public FtLibraryInfo()
-    { }
-}
