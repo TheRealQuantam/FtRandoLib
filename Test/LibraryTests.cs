@@ -12,6 +12,26 @@ namespace Test;
 
 public class LibraryTests
 {
+    [InlineData("hex",
+        "hex:10000f000f000f000f0000100eb80b0012001a000140069600001C0026002A002A002A002A008800003F003F",
+        "10000f000f000f000f0000100eb80b0012001a000140069600001c0026002a002a002a002a008800003f003f")]
+    [InlineData("base64", 
+        "EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8=", 
+        "10000f000f000f000f0000100eb80b0012001a000140069600001c0026002a002a002a002a008800003f003f")]
+    [InlineData("deflate",
+        "deflate:E2Dgh0IGAb4d3AxCDFIMjIyM0xgYZBjUoFCDgYGhA4gB",
+        "10000F000F000F000F0000100EB80B0012001A000101019600001C0026002600260026002800000088000000")]
+    [Theory]
+    public void DataDecompressSucceeds(
+        string _, // Test name
+        string dataStr,
+        string hexData)
+    {
+        FtModuleInfo info = new() { Data = dataStr };
+
+        Assert.Equal(info.UncompressedData, Convert.FromHexString(hexData));
+    }
+
     [InlineData("single", """
         {
             single: [
@@ -205,7 +225,7 @@ public class LibraryTests
                         start_addr: "1000"
                         start_addr: "0x1000"
                         start_addr: "$1000"
-                        data: "EAAPAA8ADwAPAAAQDrgLABIAGgABQAaWAAAcACYAKgAqACoAKgCIAAA/AD8="
+                        data: hex:10000f000f000f000f0000100eb80b0012001a000140069600001c0026002a002a002a002a008800003f003f
         """, 0, 1)]
     [Theory]
     public void LoadYamlLibraryImmediateSucceeds(

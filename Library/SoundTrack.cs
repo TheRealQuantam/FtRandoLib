@@ -142,7 +142,8 @@ public abstract class MusicFileInfo : MusicInfo
     /// </summary>
     protected void UncompressData(string rawData)
     {
-        const string deflateHdr = "deflate:";
+        const string deflateHdr = "deflate:",
+            hexHdr = "hex:";
         if (rawData.StartsWith(deflateHdr))
         {
             var data = Convert.FromBase64String(rawData.Substring(deflateHdr.Length));
@@ -157,6 +158,8 @@ public abstract class MusicFileInfo : MusicInfo
                 UncompressedData = outStream.ToArray();
             }
         }
+        else if (rawData.StartsWith(hexHdr))
+            UncompressedData = Convert.FromHexString(rawData.Substring(hexHdr.Length));
         else
             UncompressedData = Convert.FromBase64String(rawData);
     }
