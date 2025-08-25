@@ -101,6 +101,11 @@ public record SongMapInfo(string Name, int Offset, int Length, byte EmptyIndex =
 
 public abstract class Importer
 {
+    public static IReadOnlySet<string> JsonExtensions()
+        => MusicFileInfo.JsonExtensions();
+    public static IReadOnlySet<string> YamlExtensions()
+        => MusicFileInfo.YamlExtensions();
+    
     /// <summary>
     /// The size of each ROM bank
     /// </summary>

@@ -91,6 +91,11 @@ public abstract class MusicInfo
 /// </summary>
 public abstract class MusicFileInfo : MusicInfo
 {
+    public static IReadOnlySet<string> JsonExtensions() 
+        => new IstringSet([".json", ".jsonc", ".cjson", ".json5"]);
+    public static IReadOnlySet<string> YamlExtensions() 
+        => new IstringSet([".yaml", ".yml"]);
+
     /// <summary>
     /// The logical address of the start of the file data. This is used in rebasing the data to be placed in a different location in memory.
     /// </summary>
