@@ -32,7 +32,7 @@ public class FtSongInfo : MusicInfo
 [YamlSerializable]
 public class FtModuleInfo : MusicFileInfo
 {
-    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtSongInfo))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(FtSongInfo))]
     public FtModuleInfo()
     { }
 
@@ -47,7 +47,7 @@ public class FtModuleInfo : MusicFileInfo
 [YamlSerializable]
 public sealed class FtModuleGroupInfo : GroupInfo<FtModuleInfo> 
 {
-    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtModuleInfo))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(FtModuleInfo))]
     public FtModuleGroupInfo()
     { }
 }
@@ -56,7 +56,7 @@ public sealed class FtModuleGroupInfo : GroupInfo<FtModuleInfo>
 [YamlSerializable]
 public sealed class FtLibraryInfo : LibraryInfo<FtModuleInfo, FtModuleGroupInfo> 
 {
-    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(FtModuleGroupInfo))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(FtModuleGroupInfo))]
     public FtLibraryInfo()
     { }
 }
