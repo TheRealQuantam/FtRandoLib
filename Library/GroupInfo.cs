@@ -11,7 +11,7 @@ namespace FtRandoLib.Library;
 /// <typeparam name="TItem">The type of object in the group.</typeparam>
 [JsonObject]
 [YamlSerializable]
-public class GroupInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem> : MusicInfo
+public class GroupInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TItem> : MusicInfo
     where TItem : MusicFileInfo
 {
     [JsonProperty("items")]

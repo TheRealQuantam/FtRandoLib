@@ -48,7 +48,6 @@ public abstract class MusicFileInfo : MusicInfo
     /// </summary>
     [JsonIgnore]
     [YamlIgnore]
-    [MinLength(1, ErrorMessage = "The Data field is required")]
     public byte[] UncompressedData { get; private set; } = Array.Empty<byte>();
 
     [JsonIgnore]
@@ -57,7 +56,7 @@ public abstract class MusicFileInfo : MusicInfo
 
     private string data = "";
 
-    [DynamicDependency(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(JsonHexStringConverter))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(JsonHexStringConverter))]
     public MusicFileInfo()
     { }
 

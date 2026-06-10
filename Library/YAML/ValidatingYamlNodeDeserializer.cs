@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using YamlDotNet.Core;
@@ -74,8 +75,7 @@ public class ValidatingYamlNodeDeserializer : INodeDeserializer
             else
             {
                 _valResults.Clear();
-                if (!Validator.TryValidateObject(
-                    value, new(value), _valResults, true))
+                if (!TryValidateObject(value, null, _valResults, true))
                 {
                     var res = _valResults[0];
                     
@@ -97,5 +97,25 @@ public class ValidatingYamlNodeDeserializer : INodeDeserializer
         }
 
         return true;
+    }
+
+    [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
+    Justification = "DynamicallyAccessedMemberTypes.All is required of the type")]
+    protected static bool TryValidateObject<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
+        T instance,
+        ValidationContext? validationContext,
+        ICollection<ValidationResult>? validationResults,
+        bool validateAllProperties)
+    {
+        if (instance == null)
+            throw new ArgumentNullException(nameof(instance));
+        if (validationContext == null)
+            validationContext = new(instance);
+
+        return Validator.TryValidateObject(
+            instance, 
+            validationContext, 
+            validationResults, 
+            validateAllProperties);
     }
 }

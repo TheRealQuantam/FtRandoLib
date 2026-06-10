@@ -18,8 +18,10 @@ namespace FtRandoLib.Library;
 /// <typeparam name="TGroup">The file group type of the library.</typeparam>
 [JsonObject]
 [YamlSerializable]
-public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem,
-    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TGroup>
+public class LibraryInfo<
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TItem,
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TGroup
+>
     where TItem : MusicFileInfo
     where TGroup : GroupInfo<TItem>
 {
@@ -35,13 +37,11 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <param name="data">The JSON or YAML data to parse.</param>
     /// <param name="type">The type to construct. Must be the class through which Parse is called or a subclass of it.</param>
     /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
-    public static object Parse(
+    public static LibraryInfo<TItem, TGroup> Parse(
         string data,
         Type type,
         bool ignoreExtraFields = false)
     {
-        Debug.Assert(type.IsAssignableTo(typeof(LibraryInfo<TItem, TGroup>)));
-
         if (IsFirstCharJson(data.First(ch => char.IsWhiteSpace(ch))))
             return ParseJson(data, type, ignoreExtraFields);
         else
@@ -55,7 +55,7 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <param name="data">The JSON or YAML data to parse.</param>
     /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
     /// <returns></returns>
-    public static TLibrary Parse<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TLibrary>(
+    public static TLibrary Parse<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TLibrary>(
         string data,
         bool ignoreExtraFields = false)
         where TLibrary : LibraryInfo<TItem, TGroup>
@@ -72,15 +72,13 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <param name="jsonData">The JSON data to parse.</param>
     /// <param name="type">The type to construct. Must be the class through which Parse is called or a subclass of it.</param>
     /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
-    public static object ParseJson(
+    public static LibraryInfo<TItem, TGroup> ParseJson(
         string jsonData,
         Type type,
         bool ignoreExtraFields = false)
     {
-        Debug.Assert(type.IsAssignableTo(typeof(LibraryInfo<TItem, TGroup>)));
-
-        return ParseJson<object>(jsonData,
-            (j, s) => JsonConvert.DeserializeObject(j, type, s),
+        return ParseJson<LibraryInfo<TItem, TGroup>>(jsonData,
+            (j, s) => JsonConvert.DeserializeObject(j, type, s) as LibraryInfo<TItem, TGroup>,
             ignoreExtraFields);
     }
 
@@ -91,7 +89,7 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <param name="jsonData">The JSON data to parse.</param>
     /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
     /// <returns></returns>
-    public static TLibrary ParseJson<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TLibrary>(
+    public static TLibrary ParseJson<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TLibrary>(
         string jsonData,
         bool ignoreExtraFields = false)
         where TLibrary : LibraryInfo<TItem, TGroup>
@@ -105,13 +103,11 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <param name="yamlData">The YAML data to parse.</param>
     /// <param name="type">The type to construct. Must be the class through which Parse is called or a subclass of it.</param>
     /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
-    public static object ParseYaml(
+    public static LibraryInfo<TItem, TGroup> ParseYaml(
         string yamlData,
         Type type,
         bool ignoreExtraFields = false)
     {
-        Debug.Assert(type.IsAssignableTo(typeof(LibraryInfo<TItem, TGroup>)));
-
         var builder = new DeserializerBuilder()
             .WithNamingConvention(UnderscoredNamingConvention.Instance)
             .WithTypeConverter(new YamlHexStringConverter())
@@ -123,8 +119,8 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             builder = builder.IgnoreUnmatchedProperties();
 
         var deserializer = builder.Build();
-        return DeserializeYaml<object>(yamlData,
-            d => deserializer.Deserialize(d, type));
+        return DeserializeYaml<LibraryInfo<TItem, TGroup>>(yamlData,
+            d => deserializer.Deserialize(d, type) as LibraryInfo<TItem, TGroup>);
     }
 
     /// <summary>
@@ -134,7 +130,7 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <param name="yamlData">The YAML data to parse.</param>
     /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
     /// <returns></returns>
-    public static TLibrary ParseYaml<TLibrary>(
+    public static TLibrary ParseYaml<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TLibrary>(
         string yamlData,
         bool ignoreExtraFields = false)
         where TLibrary : LibraryInfo<TItem, TGroup>
@@ -148,7 +144,10 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <param name="yamlData">The YAML data to parse.</param>
     /// <param name="ignoreExtraFields">Whether to ignore fields that are not defined in the class. Defaults to false: throw an error if extra fields are present.</param>
     /// <returns></returns>
-    public static TLibrary ParseYaml<TLibrary, TContext>(
+    public static TLibrary ParseYaml<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TLibrary, 
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext
+    >(
         string yamlData,
         bool ignoreExtraFields = false)
         where TLibrary : LibraryInfo<TItem, TGroup>
@@ -172,7 +171,7 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     static bool IsFirstCharJson(char ch)
         => ch == '[' || ch == '{';
 
-    static TLibrary ParseJson<TLibrary>(
+    static TLibrary ParseJson<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TLibrary>(
         string jsonData,
         Func<string, JsonSerializerSettings, TLibrary?> ParsePrimitive,
         bool ignoreExtraFields = false)
@@ -206,7 +205,7 @@ public class LibraryInfo<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
     }
 
-    static TLibrary DeserializeYaml<TLibrary>(
+    static TLibrary DeserializeYaml<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TLibrary>(
         string yamlData,
         Func<string, TLibrary?> ParsePrimitive)
     {
