@@ -13,16 +13,22 @@
     <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)\$(Configuration)\$(TargetFramework)</CompilerGeneratedFilesOutputPath>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  <ItemGroup Condition="'$(ManagePackageVersionsCentrally)' != 'true'">
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <!--<PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="16.3.0" />-->
-    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 
-<ItemGroup>
-	<Compile Remove="Test\**" />
-	<Content Remove="Test\**" />
-	<None Remove="Test\**" />
-</ItemGroup>
+  <ItemGroup Condition="'$(ManagePackageVersionsCentrally)' == 'true'">
+    <PackageReference Include="Newtonsoft.Json" />
+    <!--<PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" />-->
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+    
+  <ItemGroup>
+    <Compile Remove="Test\**" />
+    <Content Remove="Test\**" />
+    <None Remove="Test\**" />
+  </ItemGroup>
 
 </Project>
