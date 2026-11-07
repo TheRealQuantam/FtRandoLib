@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BinaryBufferLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -9,7 +10,7 @@ internal class Instrument
     public int Flags = 0;
     public int?[] SeqAddrs = new int?[5];
 
-    public Instrument(BinaryBuffer buffer)
+    public Instrument(ref BufferReader buffer)
     {
         Flags = buffer.ReadByte();
 
@@ -37,7 +38,7 @@ internal class Song
     public List<int> FrameAddrs;
     public List<int[]> FramePatAddrs;
 
-    public Song(BinaryBuffer buffer, int baseAddr, int numChans)
+    public Song(ref BufferReader buffer, int baseAddr, int numChans)
     {
         BaseAddr = baseAddr;
 
@@ -51,13 +52,13 @@ internal class Song
         InitialBank = buffer.ReadByte();
 
         buffer.Seek(FrameListAddr - baseAddr);
-        FrameAddrs = (from x in buffer.GetUInt16LEEnumerable().Take(numFrames) select (int)x).ToList();
+        FrameAddrs = (from x in buffer.ReadUInt16LEs().Take(numFrames) select (int)x).ToList();
 
         FramePatAddrs = new List<int[]>();
         foreach (int frameAddr in FrameAddrs)
         {
             buffer.Seek(frameAddr - baseAddr);
-            FramePatAddrs.Add((from x in buffer.GetUInt16LEEnumerable().Take(numChans) select (int)x).ToArray());
+            FramePatAddrs.Add((from x in buffer.ReadUInt16LEs().Take(numChans) select (int)x).ToArray());
         }
     }
 }
@@ -68,7 +69,7 @@ internal class Song
 public class FtmBinary
 {
     public int BaseAddr { get; private set; }
-    private BinaryBuffer buffer;
+    private byte[] data;
 
     public int SongListAddr { get; private set; }
     public int InstrListAddr { get; private set; }
@@ -87,37 +88,38 @@ public class FtmBinary
     private List<Song> songs;
     private List<Instrument> instrs;
 
-    public FtmBinary(IList<byte> data, int baseAddr = 0, int numChans = 5)
+    public FtmBinary(byte[] data, int baseAddr = 0, int numChans = 5)
     {
-        buffer = new BinaryBuffer(data);
+        this.data = data;
         BaseAddr = baseAddr;
 
-        SongListAddr = buffer.ReadUInt16LE();
-        InstrListAddr = buffer.ReadUInt16LE();
-        SampleMapAddr = buffer.ReadUInt16LE();
-        SamplesAddr = buffer.ReadUInt16LE();
-        GroovesAddr = buffer.ReadUInt16LE();
+        BufferReader rdr = new(data);
+        SongListAddr = rdr.ReadUInt16LE();
+        InstrListAddr = rdr.ReadUInt16LE();
+        SampleMapAddr = rdr.ReadUInt16LE();
+        SamplesAddr = rdr.ReadUInt16LE();
+        GroovesAddr = rdr.ReadUInt16LE();
 
-        Flags = buffer.ReadByte();
+        Flags = rdr.ReadByte();
 
-        NtscSpeed = buffer.ReadUInt16LE();
-        PalSpeed = buffer.ReadUInt16LE();
+        NtscSpeed = rdr.ReadUInt16LE();
+        PalSpeed = rdr.ReadUInt16LE();
 
         // Parse instruments
         instrAddrs = new List<int>();
         instrs = new List<Instrument>();
         if (InstrListAddr != SampleMapAddr)
         {
-            buffer.Seek(InstrListAddr - baseAddr);
+            rdr.Seek(InstrListAddr - baseAddr);
 
-            int firstInstrAddr = buffer.ReadUInt16LE(false);
+            int firstInstrAddr = rdr.PeekUInt16LE();
             int numInstrs = (firstInstrAddr - InstrListAddr) / 2;
-            instrAddrs = (from x in buffer.GetUInt16LEEnumerable().Take(numInstrs) select (int)x).ToList();
+            instrAddrs = (from x in rdr.ReadUInt16LEs().Take(numInstrs) select (int)x).ToList();
 
             foreach (int instrAddr in instrAddrs)
             {
-                buffer.Seek(instrAddr - baseAddr);
-                instrs.Add(new Instrument(buffer));
+                rdr.Seek(instrAddr - baseAddr);
+                instrs.Add(new Instrument(ref rdr));
             }
         }
 
@@ -126,20 +128,27 @@ public class FtmBinary
         songs = new List<Song>();
         if (SongListAddr != InstrListAddr)
         {
-            buffer.Seek(SongListAddr - baseAddr);
+            rdr.Seek(SongListAddr - baseAddr);
 
-            int firstSongAddr = buffer.ReadUInt16LE(false);
+            int firstSongAddr = rdr.PeekUInt16LE();
             int numSongs = (firstSongAddr - SongListAddr) / 2;
-            songAddrs = (from x in buffer.GetUInt16LEEnumerable().Take(numSongs) select (int)x).ToList();
+            songAddrs = (from x in rdr.ReadUInt16LEs().Take(numSongs) select (int)x).ToList();
 
             songs = new List<Song>();
             foreach (int songAddr in songAddrs)
             {
-                buffer.Seek(songAddr - baseAddr);
-                songs.Add(new Song(buffer, baseAddr, numChans));
+                rdr.Seek(songAddr - baseAddr);
+                songs.Add(new Song(ref rdr, baseAddr, numChans));
             }
         }
     }
+
+    /// <summary>
+    /// Returns the modified FTM data.
+    /// </summary>
+    /// <returns></returns>
+    public byte[] GetData()
+        => data;
 
     /// <summary>
     /// Relocate the FTM to a new base address, fixing up the internal addresses.
@@ -148,11 +157,12 @@ public class FtmBinary
     public void Rebase(Int32 newAddr)
     {
         int addrDelta = newAddr - BaseAddr;
+        FixedBufferWriter buff = new(data);
 
         // Update the instruments
         for (int instrIdx = 0; instrIdx < instrAddrs.Count; instrIdx++)
         {
-            buffer.Seek(instrAddrs[instrIdx] + 2 - BaseAddr);
+            buff.Seek(instrAddrs[instrIdx] + 2 - BaseAddr);
 
             IList<int?> seqAddrs = instrs[instrIdx].SeqAddrs;
             for (int seqIdx = 0; seqIdx < seqAddrs.Count; seqIdx++)
@@ -161,15 +171,15 @@ public class FtmBinary
                 if (seqAddr is not null)
                 {
                     seqAddrs[seqIdx] = (seqAddr += addrDelta);
-                    buffer.WriteLE((UInt16)seqAddr);
+                    buff.WriteLE((UInt16)seqAddr);
                 }
             }
 
             instrAddrs[instrIdx] += addrDelta;
         }
 
-        buffer.Seek(InstrListAddr - BaseAddr);
-        buffer.WriteLE(from addr in instrAddrs select (UInt16)addr, instrAddrs.Count);
+        buff.Seek(InstrListAddr - BaseAddr);
+        buff.WriteLE(from addr in instrAddrs select (UInt16)addr);
 
         // Update the songs
         for (int songIdx = 0; songIdx < songAddrs.Count; songIdx++)
@@ -185,26 +195,26 @@ public class FtmBinary
                 for (int chanIdx = 0; chanIdx < patAddrs.Length; chanIdx++)
                     patAddrs[chanIdx] += addrDelta;
 
-                buffer.Seek(frameAddr - BaseAddr);
-                buffer.WriteLE(from addr in patAddrs select (UInt16)addr, patAddrs.Length);
+                buff.Seek(frameAddr - BaseAddr);
+                buff.WriteLE(from addr in patAddrs select (UInt16)addr);
 
                 song.FrameAddrs[frameIdx] = frameAddr + addrDelta;
             }
 
-            buffer.Seek(song.FrameListAddr - BaseAddr);
-            buffer.WriteLE(from addr in song.FrameAddrs select (UInt16)addr, song.FrameAddrs.Count);
+            buff.Seek(song.FrameListAddr - BaseAddr);
+            buff.WriteLE(from addr in song.FrameAddrs select (UInt16)addr);
 
             song.FrameListAddr += addrDelta;
-            buffer.Seek(songAddr - BaseAddr);
-            buffer.WriteLE((UInt16)song.FrameListAddr);
+            buff.Seek(songAddr - BaseAddr);
+            buff.WriteLE((UInt16)song.FrameListAddr);
 
             song.BaseAddr += addrDelta;
 
             songAddrs[songIdx] += addrDelta;
         }
 
-        buffer.Seek(SongListAddr - BaseAddr);
-        buffer.WriteLE(from addr in songAddrs select (UInt16)addr, songAddrs.Count);
+        buff.Seek(SongListAddr - BaseAddr);
+        buff.WriteLE(from addr in songAddrs select (UInt16)addr);
 
         // Update the header
         SongListAddr += addrDelta;
@@ -213,13 +223,13 @@ public class FtmBinary
         SamplesAddr += addrDelta;
         GroovesAddr += addrDelta;
 
-        buffer.Seek(0);
+        buff.Seek(0);
 
-        buffer.WriteLE((UInt16)SongListAddr);
-        buffer.WriteLE((UInt16)InstrListAddr);
-        buffer.WriteLE((UInt16)SampleMapAddr);
-        buffer.WriteLE((UInt16)SamplesAddr);
-        buffer.WriteLE((UInt16)GroovesAddr);
+        buff.WriteLE((UInt16)SongListAddr);
+        buff.WriteLE((UInt16)InstrListAddr);
+        buff.WriteLE((UInt16)SampleMapAddr);
+        buff.WriteLE((UInt16)SamplesAddr);
+        buff.WriteLE((UInt16)GroovesAddr);
 
         BaseAddr = newAddr;
     }
@@ -231,6 +241,7 @@ public class FtmBinary
     public void SwapSquareChans(int songIdx)
     {
         Song song = songs[songIdx];
+        FixedBufferWriter buff = new(data);
         HashSet<int> doneFrameAddrs = new();
 
         for (int frameIdx = 0; frameIdx < song.FrameAddrs.Count; frameIdx++)
@@ -244,8 +255,8 @@ public class FtmBinary
             frame[0] = frame[1];
             frame[1] = square1Addr;
 
-            buffer.Seek(frameAddr - BaseAddr);
-            buffer.WriteLE(from addr in frame select (UInt16)addr, 2);
+            buff.Seek(frameAddr - BaseAddr);
+            buff.WriteLE(from addr in frame select (UInt16)addr);
         }
     }
 }

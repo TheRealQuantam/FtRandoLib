@@ -1,3 +1,4 @@
+using BinaryBufferLib;
 using FtRandoLib.Library;
 using FtRandoLib.Utility;
 using System;
@@ -785,23 +786,22 @@ public abstract class Importer
         IReadOnlyDictionary<int, ISong?> songs,
         Dictionary<Module, ImportedModuleInfo> modInfos)
     {
-        IReadOnlyList<byte>? origMap = null;
+        ArraySegment<byte>? origMap = null;
         int[]? origModAddrs = null;
         int[] modAddrs;
 
         if (Rom is not null)
         {
-            origMap = new ArraySegment<byte>(
+            origMap = new(
                 Rom,
                 SongMapOffs,
                 NumSongs * 2);
 
-            ArraySegment<byte> origAddrsSeg = new(
-                Rom,
+            var origAddrsSeg = Rom.AsMemory(
                 SongModAddrTblOffs,
                 NumSongs * 2);
             origModAddrs = (from UInt16 x
-                in new BinaryBuffer(origAddrsSeg).GetUInt16LEEnumerable()
+                in new BufferReader(origAddrsSeg).ReadUInt16LEs()
                 select (int)x).ToArray();
             modAddrs = origModAddrs.ToArray();
         }
@@ -824,8 +824,8 @@ public abstract class Importer
                 Debug.Assert(origMap is not null);
                 Debug.Assert(origModAddrs is not null);
 
-                bankIdx = origMap[song.Number * 2];
-                modSongIdx = origMap[song.Number * 2 + 1];
+                bankIdx = origMap.Value[song.Number * 2];
+                modSongIdx = origMap.Value[song.Number * 2 + 1];
                 modAddr = origModAddrs[song.Number];
             }
             else
@@ -848,7 +848,7 @@ public abstract class Importer
         }
 
         byte[] modAddrsData = new byte[NumSongs * 2];
-        BinaryBuffer modAddrsBuff = new(modAddrsData);
+        FixedBufferWriter modAddrsBuff = new(modAddrsData);
         modAddrsBuff.WriteLE(from int addr in modAddrs select (UInt16)addr);
 
         RomWriter.Write(

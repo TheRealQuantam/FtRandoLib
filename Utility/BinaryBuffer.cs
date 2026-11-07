@@ -11,6 +11,7 @@ using Buffer = IList<byte>;
 /// <summary>
 /// Buffer for binary data that can read and write individual and series of 8-bit and 16-bit values with automatic endian conversion.
 /// </summary>
+[Obsolete("BinaryBuffer has been replaced by BinaryBufferLib")]
 public class BinaryBuffer
 {
     /// <summary>

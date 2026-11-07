@@ -14,12 +14,14 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(ManagePackageVersionsCentrally)' != 'true'">
+    <PackageReference Include="BinaryBufferLib" Version="0.1.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <!--<PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="16.3.0" />-->
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(ManagePackageVersionsCentrally)' == 'true'">
+    <PackageReference Include="BinaryBufferLib" />
     <PackageReference Include="Newtonsoft.Json" />
     <!--<PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" />-->
     <PackageReference Include="YamlDotNet" />

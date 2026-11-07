@@ -127,8 +127,8 @@ public class ImportedFtModuleInfo : ImportedModuleInfo
 
     public override byte[] GetData(int address, int primarySquareChan)
     {
-        byte[] buffer = Module.Data.ToArray();
-        FtmBinary ftmBin = new(buffer, Module.Address, NumChannels);
+        FtmBinary ftmBin = new(
+            Module.Data.ToArray(), Module.Address, NumChannels);
         foreach (var song in Songs)
         {
             if (song.PrimarySquareChan != primarySquareChan)
@@ -138,6 +138,6 @@ public class ImportedFtModuleInfo : ImportedModuleInfo
         if (address != Module.Address)
             ftmBin.Rebase(address);
 
-        return buffer;
+        return ftmBin.GetData();
     }
 }
